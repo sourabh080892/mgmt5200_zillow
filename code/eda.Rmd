@@ -1,0 +1,100 @@
+---
+title: "Zillow Project"
+author: ""
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  # pdf_document: 
+  #   latex_engine: xelatex
+  
+---
+
+# Goal of the EDA
+
+Zillow
+
+# Prerequisites for analysis
+
+Following needs to be prior to any analysis:
+
++ Clear your environment
++ Load required packages
++ Organize work and point to the right directories
+
+
+
+```{r, include= FALSE}
+
+# Clear environment of variables and functions
+rm(list = ls(all = TRUE)) 
+
+# Clear environmet of packages
+if(is.null(sessionInfo()$otherPkgs) == FALSE)lapply(paste("package:", names(sessionInfo()$otherPkgs), sep=""), detach, character.only = TRUE, unload = TRUE)
+
+
+
+```
+
+```{r, include= FALSE }
+# Load libraries
+#library(here) not used yet
+library(tidyverse)
+library(corrplot)
+library(GGally)
+library(gridExtra)
+library(readxl)
+library(kableExtra)
+library(janitor)
+library(GGally)
+library(psych)
+library(stringr)
+library(dplyr)
+library(openxlsx)
+library(knitr)
+library(skimr)
+
+```
+
+
+Load datasets provided with this project.
+
+
+```{r, warning=FALSE, message=FALSE}
+
+agent_acq_dates <- read.csv("AgentAcquisitionDates.csv", header=TRUE)
+agentid_zuid <- read.csv("AgentIDZUIDLookup.csv", header=TRUE)
+agent_leads <- read.csv("AgentLeads.csv", header=TRUE)
+phone_16_1702 <- read.csv("PhoneCalls20161001_20170228.csv", header=TRUE)
+phone_1703_1706 <- read.csv("PhoneCalls20170301_20170630.csv", header=TRUE)
+sales_meet <- read.csv("SalesMeetings.csv", header=TRUE)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
