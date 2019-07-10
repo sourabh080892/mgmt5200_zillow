@@ -65,29 +65,129 @@ Load datasets provided with this project.
 
 
 ```{r, warning=FALSE, message=FALSE}
+agent_acq_dates <- read.csv("../data/AgentAcquisitionDates.csv")
+agentid_zuid <- read.csv("../data/AgentIDZUIDLookup.csv")
+agent_leads <- read.csv("../data/AgentLeads.csv")
+phone_16_1702 <- read.csv("../data/PhoneCalls20161001_20170228.csv")
+phone_1703_1706 <- read.csv("../data/PhoneCalls20170301_20170630.csv")
+sales_meet <- read.csv("../data/SalesMeetings.csv")
 
-agent_acq_dates <- read.csv("AgentAcquisitionDates.csv", header=TRUE)
-agentid_zuid <- read.csv("AgentIDZUIDLookup.csv", header=TRUE)
-agent_leads <- read.csv("AgentLeads.csv", header=TRUE)
-phone_16_1702 <- read.csv("PhoneCalls20161001_20170228.csv", header=TRUE)
-phone_1703_1706 <- read.csv("PhoneCalls20170301_20170630.csv", header=TRUE)
-sales_meet <- read.csv("SalesMeetings.csv", header=TRUE)
 
+# agent_acq_dates <- read.csv("AgentAcquisitionDates.csv", header=TRUE)
+# agentid_zuid <- read.csv("AgentIDZUIDLookup.csv", header=TRUE)
+# agent_leads <- read.csv("AgentLeads.csv", header=TRUE)
+# phone_16_1702 <- read.csv("PhoneCalls20161001_20170228.csv", header=TRUE)
+# phone_1703_1706 <- read.csv("PhoneCalls20170301_20170630.csv", header=TRUE)
+# sales_meet <- read.csv("SalesMeetings.csv", header=TRUE)
+
+
+```
+
+
+```{r}
+# joining agentid_zuid table and agent_acq_dates table  
+agentid_acq_dates <- merge(x = agentid_zuid, y = agent_acq_dates, by.x = "ZUID", by.y = "ZUID", all= TRUE) 
+# Adding two phone tables together 
+phone <- rbind(phone_16_1702, phone_1703_1706)
+```
+
+
+
+```{r}
+summary(agent_leads)
+summary(phone)
+summary(agentid_acq_dates)
+summary(sales_meet)
+```
+
++ Most data is from 2016-10-01 to 2017-06-30
++ Agent_Leads file has total of 271k rows 
+    + can combine blank rows and unknown rows from LeadType and LeadVendor into one category or remove all
++ agentid_acq_dates records all acquisition, needs to be filtered 
+  + missing values can be removed
+
+Things to do:
++ Data type
+  + convert datetime columns from all tables into date data type 
++ Data filtering  
+  + select date between 2016-10-01 and 2017-06-30 from all tables
++ missing values 
+
+
+
+```{r}
+# Converting columns DateTime into date data type 
+library(anytime)
+agentid_acq_dates$AcquisitionDate <- anydate(agentid_acq_dates$AcquisitionDate)
+agent_leads$LeadDateTime <- anydate(agent_leads$LeadDateTime)
+phone$PhoneCallDateTime <- anydate(phone$PhoneCallDateTime)
+sales_meet$SalesMeetingDate <- anydate(sales_meet$SalesMeetingDate)
+```
+
+
+
+Agentid_acq_dates
+
+```{r}
+# agentid_acq_dates table 
+# select AcquisitionDate between 2016-10-01 and 2017-06-29 from agentid_acq_dates table
+agentid_acq_dates <- agentid_acq_dates[(agentid_acq_dates$AcquisitionDate >= "2016-10-01" & agentid_acq_dates$AcquisitionDate <= "2017-06-29"),]
+
+# removing all missing values 
+agentid_acq_dates <- agentid_acq_dates %>% drop_na()
+
+summary(agentid_acq_dates)
+```
+
+
+Agent_leads
+
+```{r}
+# agent leads table 
+# combine social organic and organic as organic, unknown and blank as unknown
+agent_leads$LeadType <- ifelse(agent_leads$LeadType == "", "unknown", 
+                               ifelse(agent_leads$LeadType == "unknown", "unknown",
+                                      ifelse(agent_leads$LeadType == "Email", "Email",
+                                             ifelse(agent_leads$LeadType == "Paid", "Paid",
+                                                ifelse(agent_leads$LeadType == "Organic", "Organic",
+                                                    ifelse(agent_leads$LeadType == "Social Organic", "Organic", "unknown"))))))
+
+agent_leads$LeadType <- agent_leads$LeadType %>% as.factor()
+
+
+# remove and blank values from Leadtype 
+agent_leads <- agent_leads[!agent_leads$LeadType == "unknown",]
+
+summary(agent_leads)
+
+```
+
++ LeadVendor has too many levels, and is a description of LeadType. We can either ignore the variable or do futher grouping if we have time
+
+
+Phone
+
+```{r}
+# Removing TalkTimeMInutes values that equal to 0 
+summary(phone)
+
+phone <- phone[!phone$TalkTimeMinutes == 0 & phone$TalkTimeMinutes <= 1000,]
+```
+
+Sales_meet
+```{r}
+summary(sales_meet)
 ```
 
 
 
 
 
+Questions:
 
-
-
-
-
-
-
-
-
++ Should we filter out records prior to 2017-03-13 since sales_meeting only has records after the period?
++ Need to filter TalkTimeMinutes from phone table  
++ Take a look at missing values. I simply removed all missings values from agentid_acq_dates, and combined unknown and missing values from agent_leads
 
 
 
