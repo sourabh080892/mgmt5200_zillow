@@ -86,7 +86,7 @@ sales_meet <- read.csv("../data/SalesMeetings.csv")
 
 ```{r}
 # joining agentid_zuid table and agent_acq_dates table  
-agentid_acq_dates <- merge(x = agentid_zuid, y = agent_acq_dates, by.x = "ZUID", by.y = "ZUID", all= TRUE) 
+agentid_acq_dates <- left_join(x = agentid_zuid, y = agent_acq_dates, by = "ZUID") 
 # Adding two phone tables together 
 phone <- rbind(phone_16_1702, phone_1703_1706)
 ```
@@ -171,7 +171,7 @@ Phone
 # Removing TalkTimeMInutes values that equal to 0 
 summary(phone)
 
-phone <- phone[!phone$TalkTimeMinutes == 0 & phone$TalkTimeMinutes <= 1000,]
+phone <- phone[phone$TalkTimeMinutes >= 1 & phone$TalkTimeMinutes <= 1000,]
 ```
 
 Sales_meet
@@ -188,6 +188,25 @@ Questions:
 + Should we filter out records prior to 2017-03-13 since sales_meeting only has records after the period?
 + Need to filter TalkTimeMinutes from phone table  
 + Take a look at missing values. I simply removed all missings values from agentid_acq_dates, and combined unknown and missing values from agent_leads
+
+
+
+
+```{r}
+
+base <- inner_join(agent_leads, phone, by = c("REAgentID", "SalesRepID"))
+base <- left_join(base, sales_meet, by = c("SalesRepID", "REAgentID"))
+base <- left_join(base, agentid_acq_dates, by = "REAgentID")
+
+summary(base)
+```
+
+
+
+
+
+
+
 
 
 
