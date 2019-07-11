@@ -4,7 +4,118 @@ output: html_notebook
 ---
 
 
+Commented header  
+=========================================
+
+```{r echo = TRUE}
+# Course: 
+# Title: 
+# Purpose: 
+# Date: 
+# Author: Huy LE
+```
+
+
+Clear environment of variables and packages  
+=========================================
+
 ```{r}
-plot(cars)
+
+# Clear environment of variables and functions
+rm(list = ls(all = TRUE)) 
+
+# Clear environmet of packages
+if(is.null(sessionInfo()$otherPkgs) == FALSE)lapply(paste("package:", names(sessionInfo()$otherPkgs), sep=""), detach, character.only = TRUE, unload = TRUE)
+```
+
+Load packages that include different functions  
+=========================================
+
+```{r}
+# adding library
+library(tidyverse)
+library(GGally)
+library(gridExtra)
+library("readxl")
+library(janitor)
+```
+
+Load data and begin new EDA  
+=========================================
+
+```{r}
+#loading data
+AgentAcquisitionDates <- read_csv('../data/AgentAcquisitionDates.csv')
+AgentIDZUIDLookup <- read_csv('../data/AgentIDZUIDLookup.csv')
+AgentLeads <- read_csv('../data/AgentLeads.csv')
+PhoneCalls20161001_20170228 <- read_csv('../data/PhoneCalls20161001_20170228.csv')
+PhoneCalls20170301_20170630 <- read_csv('../data/PhoneCalls20170301_20170630.csv')
+SalesMeetings <- read_csv('../data/SalesMeetings.csv')
+```
+
+```{r}
+AgentAcquisitionDates$AcquisitionDate <- as.Date(AgentAcquisitionDates$AcquisitionDate,"%Y-%m-%d")
+
+```
+
+
+```{r}
+#check na value
+sapply(AgentAcquisitionDates, function(x) sum(is.na(x)))
+sapply(AgentIDZUIDLookup, function(x) sum(is.na(x)))
+sapply(AgentLeads, function(x) sum(is.na(x)))
+sapply(PhoneCalls20161001_20170228, function(x) sum(is.na(x)))
+sapply(PhoneCalls20170301_20170630, function(x) sum(is.na(x)))
+sapply(SalesMeetings, function(x) sum(is.na(x)))
+```
+
+```{r}
+  summary(AgentAcquisitionDates)
+  summary(AgentIDZUIDLookup)
+  summary(AgentLeads)
+  summary(PhoneCalls20161001_20170228)
+  summary(PhoneCalls20170301_20170630)
+  summary(SalesMeetings)
+```
+
+# the process is: Lead -> Phone Call -> Meeting or not -> acquicisiton datte
+
+```{r}
+# Joining data together 
+
+# join ZUID acquisition <-> Agent ID
+df <- AgentAcquisitionDates %>% right_join(AgentIDZUIDLookup, by = 'ZUID')
+head(df)
+
+# union phone call data
+phonecall <- rbind(PhoneCalls20161001_20170228, PhoneCalls20170301_20170630)
+
+# Join Phone call - Lead
+df2 <-  AgentLeads%>% inner_join(phonecall, by =c('REAgentID', 'SalesRepID'))
+
+head(df2,20)
+
+df2 <- df2 %>% filter(TalkTimeMinutes >= 1,REAgentID !='', SalesRepID !=''  )
+
+df2 <- df2 %>% left_join(SalesMeetings, by =c('REAgentID', 'SalesRepID')) %>%
+        group_by(REAgentID, SalesRepID, LeadDateTime)
+
+df3 <- df2 %>% left_join(df, by = 'REAgentID')
+```
+
+```{r}
+phonecall %>% group_by(REAgentID, SalesRepID) %>%
+              summarise(count = n())
+
+```
+
+```{r}
+df3$LeadPlatform <- as.factor(df3$LeadPlatform)
+
+df3$LeadType <- as.factor(df3$LeadType)
+
+df3$LeadVendor <- as.factor(df3$LeadVendor)
+
+summary(df3)
 ```
 
