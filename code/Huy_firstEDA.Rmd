@@ -38,6 +38,7 @@ library(GGally)
 library(gridExtra)
 library("readxl")
 library(janitor)
+library(stringr)
 ```
 
 Load data and begin new EDA  
@@ -51,10 +52,50 @@ AgentLeads <- read_csv('../data/AgentLeads.csv')
 PhoneCalls20161001_20170228 <- read_csv('../data/PhoneCalls20161001_20170228.csv')
 PhoneCalls20170301_20170630 <- read_csv('../data/PhoneCalls20170301_20170630.csv')
 SalesMeetings <- read_csv('../data/SalesMeetings.csv')
+
+
 ```
 
 ```{r}
 AgentAcquisitionDates$AcquisitionDate <- as.Date(AgentAcquisitionDates$AcquisitionDate,"%Y-%m-%d")
+
+AgentAcquisitionDates <- AgentAcquisitionDates %>% filter(AcquisitionDate >= as.Date("2016-10-1"))
+# union phone call data
+phonecall <- rbind(PhoneCalls20161001_20170228, PhoneCalls20170301_20170630) %>%
+              filter(TalkTimeMinutes >= 0.5 ,REAgentID !='', SalesRepID !=''  )
+
+#group lead type
+AgentLeads$LeadType <- ifelse(AgentLeads$LeadType == "", "unknown", 
+                              ifelse(is.na(AgentLeads$LeadType) , "unknown",
+                                 ifelse(AgentLeads$LeadType == "unknown", "unknown",
+                                        ifelse(AgentLeads$LeadType == "Email", "Email",
+                                               ifelse(AgentLeads$LeadType == "Paid", "Paid",
+                                                  ifelse(AgentLeads$LeadType == "Organic", "Organic",
+                                                      ifelse(AgentLeads$LeadType == "Social Organic", "Organic", "unknown")))))))
+AgentLeads$LeadType <-  ifelse(is.na(AgentLeads$LeadType) , "unknown",AgentLeads$LeadType)
+
+# AgentLeads$LeadType %>% unique()
+#   
+# AgentLeads$LeadPlatform%>% unique()
+# 
+# AgentLeads$LeadVendor%>% unique()
+
+# Group lead vendor to group as marketing channel
+ledvendoremail <- c( "email","gmail","outlook")
+ledvendorgoogle <- c("google", "gdn", "android")
+ledvendorbing <- c("bing", "msn")
+ledvendororganic <- c("bizdev","zillow","organic","trulia","source","internal")
+ledvendorsocial <- c("affiliate","facebook","linkedin","display","schools","yahoo","gemini","zrm","areavibes","tomferry","thalamus","irontraffic","twitter","banner","instagram","flagged","brandnetworks","inquiry","textlink","blog","postletsre","tor", "agent","marketing","trulia" ,"draft","listing")
+
+AgentLeads$LeadVendor <- ifelse(str_detect(tolower(AgentLeads$LeadVendor), ledvendoremail), "Email",
+                                ifelse(str_detect(tolower(AgentLeads$LeadVendor), ledvendorgoogle), "Paid Search-Google",
+                                       ifelse(str_detect(tolower(AgentLeads$LeadVendor), ledvendorbing),"Paid Search-Bing",
+                                              ifelse(str_detect(tolower(AgentLeads$LeadVendor), ledvendororganic),"Organic",
+                                                     ifelse(str_detect(tolower(AgentLeads$LeadVendor), ledvendorsocial),"Social","unknow")))))
+
+AgentLeads$LeadVendor <- ifelse(is.na(AgentLeads$LeadVendor) , "unknown",AgentLeads$LeadType)
+
+
 
 ```
 
@@ -67,6 +108,13 @@ sapply(AgentLeads, function(x) sum(is.na(x)))
 sapply(PhoneCalls20161001_20170228, function(x) sum(is.na(x)))
 sapply(PhoneCalls20170301_20170630, function(x) sum(is.na(x)))
 sapply(SalesMeetings, function(x) sum(is.na(x)))
+
+#check duplicate row
+duplicated(AgentLeads)
+
+agentlead <- AgentLeads%>%distinct() 
+
+phonecall <- phonecall%>% distinct() 
 ```
 
 ```{r}
@@ -82,40 +130,53 @@ sapply(SalesMeetings, function(x) sum(is.na(x)))
 
 ```{r}
 # Joining data together 
-
 # join ZUID acquisition <-> Agent ID
 df <- AgentAcquisitionDates %>% right_join(AgentIDZUIDLookup, by = 'ZUID')
 head(df)
 
-# union phone call data
-phonecall <- rbind(PhoneCalls20161001_20170228, PhoneCalls20170301_20170630)
 
 # Join Phone call - Lead
-df2 <-  AgentLeads%>% inner_join(phonecall, by =c('REAgentID', 'SalesRepID'))
+# I used filter duplicated data
+# Lead and phone are join by left join and with REAgentID and SalesID
+df2 <-  agentlead%>%  left_join(phonecall, by =c('REAgentID', 'SalesRepID'))
 
-head(df2,20)
-
-df2 <- df2 %>% filter(TalkTimeMinutes >= 1,REAgentID !='', SalesRepID !=''  )
-
+# join Sale meeting together
 df2 <- df2 %>% left_join(SalesMeetings, by =c('REAgentID', 'SalesRepID')) %>%
         group_by(REAgentID, SalesRepID, LeadDateTime)
+# Join with acquisition
 
 df3 <- df2 %>% left_join(df, by = 'REAgentID')
 ```
 
 ```{r}
-phonecall %>% group_by(REAgentID, SalesRepID) %>%
-              summarise(count = n())
+# df2_1 <-  agentlead%>%  left_join(phonecall, by =c('REAgentID'))#, 'SalesRepID')) 
+# 
+# df2_1 %>% group_by(REAgentID) %>% head(20)
+
+```
+
+
+```{r}
+# phonecall %>% group_by(REAgentID, SalesRepID) %>%
+#               summarise(count = n())
 
 ```
 
 ```{r}
+
 df3$LeadPlatform <- as.factor(df3$LeadPlatform)
 
 df3$LeadType <- as.factor(df3$LeadType)
 
 df3$LeadVendor <- as.factor(df3$LeadVendor)
 
-summary(df3)
+```
+
+```{r}
+# time for agrregation
+
+leadchannel <- df3 %>% group_by(LeadPlatform, LeadType, LeadVendor) %>%
+        summarise(Count = n())
+
 ```
 
