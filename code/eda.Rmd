@@ -65,12 +65,12 @@ Load datasets provided with this project.
 
 
 ```{r, warning=FALSE, message=FALSE}
-agent_acq_dates <- read.csv("../data/AgentAcquisitionDates.csv")
-agentid_zuid <- read.csv("../data/AgentIDZUIDLookup.csv")
-agent_leads <- read.csv("../data/AgentLeads.csv")
-phone_16_1702 <- read.csv("../data/PhoneCalls20161001_20170228.csv")
-phone_1703_1706 <- read.csv("../data/PhoneCalls20170301_20170630.csv")
-sales_meet <- read.csv("../data/SalesMeetings.csv")
+agent_acq_dates <- read_csv("../data/AgentAcquisitionDates.csv")
+agentid_zuid <- read_csv("../data/AgentIDZUIDLookup.csv")
+agent_leads <- read_csv("../data/AgentLeads.csv")
+phone_16_1702 <- read_csv("../data/PhoneCalls20161001_20170228.csv")
+phone_1703_1706 <- read_csv("../data/PhoneCalls20170301_20170630.csv")
+sales_meet <- read_csv("../data/SalesMeetings.csv")
 
 
 # agent_acq_dates <- read.csv("AgentAcquisitionDates.csv", header=TRUE)
@@ -90,6 +90,7 @@ agentid_acq_dates <- left_join(x = agentid_zuid, y = agent_acq_dates, by = "ZUID
 # Adding two phone tables together 
 phone <- rbind(phone_16_1702, phone_1703_1706) %>% 
   filter(TalkTimeMinutes >= 0.5 ,REAgentID !='', SalesRepID !=''  )
+
 
 ```
 
@@ -151,6 +152,11 @@ Agent_leads
 ```{r}
 # agent leads table 
 # combine social organic and organic as organic
+
+agent_leads$LeadType[is.na(agent_leads$LeadType) == TRUE] <- ""
+agent_leads$LeadVendor[is.na(agent_leads$LeadVendor) == TRUE] <- ""
+
+
 agent_leads$LeadType <- ifelse(agent_leads$LeadType == "", "", 
                                ifelse(agent_leads$LeadType == "unknown", "unknown",
                                       ifelse(agent_leads$LeadType == "Email", "Email",
@@ -190,7 +196,7 @@ agent_leads <- agent_leads   %>% mutate(Channel = ifelse(LeadType =="Email" | Le
                                                       ifelse(LeadType =="Organic"  | LeadVendor =='Organic', "Organic",
                                                              ifelse(LeadType == "Paid", ifelse(LeadVendor =="Paid Search-Google", "Paid Search-Google",
                                                                                               ifelse(LeadVendor =="Paid Search-Bing", "Paid Search-Bing", "Paid Social")),
-                                                                    ifelse(LeadType == "unknown" , "unknown", paste(LeadType,LeadVendor,sep = "-"))))))
+                                                                    ifelse(LeadType == "unknown" , "unknown", "unknown")))))
 
 
 agent_leads$Channel <- agent_leads$Channel %>% as.factor()
@@ -216,12 +222,12 @@ LeadLastTouch <- agent_leads[is.na(agent_leads$LeadVendor) == FALSE,] %>%
                   group_by(REAgentID) %>% 
                   mutate(ranking = row_number()) %>%
                   filter(ranking ==1)
-# create first touch lead df 
-LeadFirstTouch <- agent_leads  %>%    filter(!is.na(LeadDateTime)) %>%
-                  arrange(REAgentID, LeadDateTime) %>%      
-                  group_by(REAgentID) %>% 
-                  mutate(ranking = row_number()) %>%
-                  filter(ranking ==1)
+# # create first touch lead df 
+# LeadFirstTouch <- agent_leads  %>%    filter(!is.na(LeadDateTime)) %>%
+#                   arrange(REAgentID, LeadDateTime) %>%      
+#                   group_by(REAgentID) %>% 
+#                   mutate(ranking = row_number()) %>%
+#                   filter(ranking ==1)
 # Number of obs each each df are the same    
 
 ```
@@ -326,6 +332,7 @@ finaldf <- numlead %>% merge(numphone, by.x='Channel', all = TRUE) %>%
                         merge(numacquire, by.x='Channel', all = TRUE)
 NoAgenlead <- agent_leads$REAgentID %>% unique() %>% length()
 NoAgentAcq <- agent_acq_dates$ZUID %>% unique() %>% length()
+finaldf
 # write.csv(finaldf, file = "FinalData.csv")
 ```
 
@@ -337,13 +344,14 @@ basedf <- agent_leads %>% inner_join(phone, by = 'REAgentID') %>%
                         left_join(sales_meet, by =c('REAgentID')) %>%
                         left_join(agentid_acq_dates, by = 'REAgentID')
 basedf<- basedf %>% select(REAgentID,LeadPlatform, LeadType, Channel, PhoneCallType,TalkTimeMinutes, SalesMeetingDate, ZUID, AcquisitionDate) %>% distinct() %>%
-            mutate(Channel = ifelse(Channel =='-', '', Channel),
+            mutate(Channel = Channel,
                    Meeting = as.factor(ifelse(is.na(SalesMeetingDate),0,1)),
                    ZUID = as.factor(ifelse(is.na(ZUID),0,1) ),
                    Acquired = as.factor(ifelse(is.na(AcquisitionDate),0,1)),
                    PhoneCallType =as.factor(ifelse(PhoneCallType=="Sales Rep Called RE Agent","Out","In")))%>%
             select(LeadPlatform, LeadType,Channel,PhoneCallType ,TalkTimeMinutes,Meeting,Acquired)
-          
+summary(basedf)   
+
 
 #logit model
 mylogit <- glm(Acquired ~., data = basedf, family = "binomial")
