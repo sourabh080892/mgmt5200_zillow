@@ -75,7 +75,7 @@ sales_meet <- read.csv("../data/SalesMeetings.csv")
 
 # agent_acq_dates <- read.csv("AgentAcquisitionDates.csv", header=TRUE)
 # agentid_zuid <- read.csv("AgentIDZUIDLookup.csv", header=TRUE)
-# agent_leads <- read.csv("AgentLeads.csv", header=TRUE)
+# agent_leads <- read.csv("agent_leads.csv", header=TRUE)
 # phone_16_1702 <- read.csv("PhoneCalls20161001_20170228.csv", header=TRUE)
 # phone_1703_1706 <- read.csv("PhoneCalls20170301_20170630.csv", header=TRUE)
 # sales_meet <- read.csv("SalesMeetings.csv", header=TRUE)
@@ -88,7 +88,9 @@ sales_meet <- read.csv("../data/SalesMeetings.csv")
 # joining agentid_zuid table and agent_acq_dates table  
 agentid_acq_dates <- left_join(x = agentid_zuid, y = agent_acq_dates, by = "ZUID") 
 # Adding two phone tables together 
-phone <- rbind(phone_16_1702, phone_1703_1706)
+phone <- rbind(phone_16_1702, phone_1703_1706) %>% 
+  filter(TalkTimeMinutes >= 0.5 ,REAgentID !='', SalesRepID !=''  )
+
 ```
 
 
@@ -117,6 +119,7 @@ Things to do:
 
 ```{r}
 # Converting columns DateTime into date data type 
+#install.packages("anytime")
 library(anytime)
 agentid_acq_dates$AcquisitionDate <- anydate(agentid_acq_dates$AcquisitionDate)
 agent_leads$LeadDateTime <- anydate(agent_leads$LeadDateTime)
@@ -131,7 +134,7 @@ Agentid_acq_dates
 ```{r}
 # agentid_acq_dates table 
 # select AcquisitionDate between 2016-10-01 and 2017-06-29 from agentid_acq_dates table
-agentid_acq_dates <- agentid_acq_dates[(agentid_acq_dates$AcquisitionDate >= "2016-10-01" & agentid_acq_dates$AcquisitionDate <= "2017-06-29"),]
+agentid_acq_dates <- agentid_acq_dates[(agentid_acq_dates$AcquisitionDate >= "2016-10-01" & agentid_acq_dates$AcquisitionDate <= "2017-06-30"),]
 
 # removing all missing values 
 agentid_acq_dates <- agentid_acq_dates %>% drop_na()
@@ -140,12 +143,15 @@ summary(agentid_acq_dates)
 ```
 
 
+
+
+
 Agent_leads
 
 ```{r}
 # agent leads table 
-# combine social organic and organic as organic, unknown and blank as unknown
-agent_leads$LeadType <- ifelse(agent_leads$LeadType == "", "unknown", 
+# combine social organic and organic as organic
+agent_leads$LeadType <- ifelse(agent_leads$LeadType == "", "", 
                                ifelse(agent_leads$LeadType == "unknown", "unknown",
                                       ifelse(agent_leads$LeadType == "Email", "Email",
                                              ifelse(agent_leads$LeadType == "Paid", "Paid",
@@ -155,52 +161,216 @@ agent_leads$LeadType <- ifelse(agent_leads$LeadType == "", "unknown",
 agent_leads$LeadType <- agent_leads$LeadType %>% as.factor()
 
 
-# remove and blank values from Leadtype 
-agent_leads <- agent_leads[!agent_leads$LeadType == "unknown",]
+levels(agent_leads$LeadType)
+
+
+
+#regroup leadvendors into paidsocial, paidsearch-bing, paidsearch-google, email, organic and others 
+
+
+ledvendoremail <- c( "email","gmail","outlook")
+ledvendorgoogle <- c("google", "gdn", "android")
+ledvendorbing <- c("bing", "msn")
+ledvendororganic <- c("bizdev","zillow","organic","trulia","source","internal")
+ledvendorsocial <- c("affiliate","facebook","linkedin","display","schools","yahoo","gemini","zrm","areavibes","tomferry","thalamus","irontraffic","twitter","banner","instagram","flagged","brandnetworks","inquiry","textlink","blog","postletsre","tor", "agent","marketing","trulia" ,"draft","listing")
+
+
+agent_leads$LeadVendor <- ifelse(str_detect(tolower(agent_leads$LeadVendor), ledvendoremail), "Email",
+                                ifelse(str_detect(tolower(agent_leads$LeadVendor), ledvendorgoogle), "Paid Search-Google",
+                                       ifelse(str_detect(tolower(agent_leads$LeadVendor), ledvendorbing),"Paid Search-Bing",
+                                              ifelse(str_detect(tolower(agent_leads$LeadVendor), ledvendororganic),"Organic",
+                                                     ifelse(str_detect(tolower(agent_leads$LeadVendor), ledvendorsocial),"PaidSocial","unknown")))))
+
+agent_leads$LeadVendor <- agent_leads$LeadVendor %>% as.factor()
+
+levels(agent_leads$LeadVendor)
+
+
+agent_leads <- agent_leads   %>% mutate(Channel = ifelse(LeadType =="Email" | LeadVendor =='Email', "Email",
+                                                      ifelse(LeadType =="Organic"  | LeadVendor =='Organic', "Organic",
+                                                             ifelse(LeadType == "Paid", ifelse(LeadVendor =="Paid Search-Google", "Paid Search-Google",
+                                                                                              ifelse(LeadVendor =="Paid Search-Bing", "Paid Search-Bing", "Paid Social")),
+                                                                    ifelse(LeadType == "unknown" , "unknown", paste(LeadType,LeadVendor,sep = "-"))))))
+
+
+agent_leads$Channel <- agent_leads$Channel %>% as.factor()
+
+
+levels(agent_leads$Channel)
 
 summary(agent_leads)
 
+
+
+
 ```
 
-+ LeadVendor has too many levels, and is a description of LeadType. We can either ignore the variable or do futher grouping if we have time
-
-
-Phone
-
-```{r}
-# Removing TalkTimeMInutes values that equal to 0 
-summary(phone)
-
-phone <- phone[phone$TalkTimeMinutes >= 1 & phone$TalkTimeMinutes <= 1000,]
-```
-
-Sales_meet
-```{r}
-summary(sales_meet)
-```
-
-
-
-
-
-Questions:
-
-+ Should we filter out records prior to 2017-03-13 since sales_meeting only has records after the period?
-+ Need to filter TalkTimeMinutes from phone table  
-+ Take a look at missing values. I simply removed all missings values from agentid_acq_dates, and combined unknown and missing values from agent_leads
 
 
 
 
 ```{r}
+# create last touch lead df 
+LeadLastTouch <- agent_leads[is.na(agent_leads$LeadVendor) == FALSE,] %>%
+                  arrange(REAgentID, desc(LeadDateTime)) %>%       
+                  group_by(REAgentID) %>% 
+                  mutate(ranking = row_number()) %>%
+                  filter(ranking ==1)
+# create first touch lead df 
+LeadFirstTouch <- agent_leads  %>%    filter(!is.na(LeadDateTime)) %>%
+                  arrange(REAgentID, LeadDateTime) %>%      
+                  group_by(REAgentID) %>% 
+                  mutate(ranking = row_number()) %>%
+                  filter(ranking ==1)
+# Number of obs each each df are the same    
 
-base <- inner_join(agent_leads, phone, by = c("REAgentID", "SalesRepID"))
-base <- left_join(base, sales_meet, by = c("SalesRepID", "REAgentID"))
-base <- left_join(base, agentid_acq_dates, by = "REAgentID")
-
-summary(base)
 ```
 
+
+
+```{r}
+
+#check na value
+sapply(agentid_acq_dates, function(x) sum(is.na(x)))
+sapply(agent_leads, function(x) sum(is.na(x)))
+sapply(phone, function(x) sum(is.na(x)))
+sapply(sales_meet, function(x) sum(is.na(x)))
+
+
+
+```
+
+
+
+```{r}
+
+# calc number touch per lead , last touch attribution
+LeadLastTouch %>%   filter(REAgentID != '', SalesRepID !='', !is.na(LeadDateTime)) %>% distinct() %>%
+        group_by(Channel) %>%
+        summarise(count =n())
+# calc number touch per lead , first touch attribution
+LeadFirstTouch %>%   filter(REAgentID != '', SalesRepID !='', !is.na(LeadDateTime)) %>% distinct() %>%
+        group_by(Channel) %>%
+        summarise(count =n())
+# the code below use to validate the result about
+agent_leads %>% select(REAgentID, SalesRepID, Channel, LeadDateTime) %>% 
+                filter(REAgentID != '', SalesRepID !='', !is.na(LeadDateTime)) %>% distinct() %>%
+                 group_by(Channel) %>%
+                  summarise(Leadcount =n())
+
+
+
+```
+
+
+
+```{r}
+# Join Phone to LEad data and agreegate
+dfphonelead <- LeadLastTouch %>% left_join(phone, by =c('REAgentID')) %>%
+                                filter(!is.na(LeadDateTime), !is.na(PhoneCallDateTime))%>%
+                                select(REAgentID, LeadPlatform, Channel, PhoneCallDateTime) %>% distinct() 
+    
+dfphonelead %>%   group_by(Channel) %>%
+                  summarise(Phonecount =n())
+# LeadLastTouch %>% right_join(phonecall, by =c('REAgentID')) %>%
+#                                 filter(!is.na(LeadDateTime), !is.na(PhoneCallDateTime))%>%
+#                                 select(REAgentID, LeadPlatform, Channel, PhoneCallDateTime) %>% distinct()
+
+
+
+```
+
+
+## Join meeting to phone lead
+```{r}
+# Salemeeting will be te base, each meeting must be assign to only one lead
+dfmeeting <- LeadLastTouch %>% right_join(sales_meet, by=c('REAgentID'))  %>%
+                                filter(!is.na(SalesMeetingDate), !is.na(LeadDateTime))%>%
+                                select(REAgentID, LeadPlatform, Channel, SalesMeetingDate) %>% distinct() 
+dfmeeting %>%   group_by(LeadPlatform,Channel) %>%
+                  summarise(Meetingcount =n())
+# the different in nuber of meeeting between original data and this dataframe is number of meeting which are not belong to any lead channel
+# This mean their lead data is null.
+```
+
+
+
+## Join accquicistion to Lead
+
+```{r}
+# This step I used right join because each acquisition must be link to at least a lead => Acquisition table is the base
+dfacquisitionlead <- LeadLastTouch %>% right_join(agentid_acq_dates, by ='REAgentID') %>%
+                                      select(REAgentID, LeadPlatform, Channel, AcquisitionDate) %>% distinct()
+dfacquisitionlead %>%   group_by(Channel) %>%
+                  summarise(Acquiredcount =n())
+```
+
+
+
+## put all of aggregate data together
+```{r}
+numlead <- agent_leads %>% select(REAgentID, SalesRepID, Channel, LeadDateTime) %>% 
+                filter(REAgentID != '', SalesRepID !='', !is.na(LeadDateTime)) %>% distinct() %>%
+                 group_by(Channel) %>%
+                  summarise(Leadcount =n())
+numphone <- dfphonelead %>%   group_by(Channel) %>%
+                  summarise(Phonecount =n())
+nummeeting <- dfmeeting %>%   group_by(Channel) %>%
+                  summarise(Meetingcount =n())
+numacquire <- dfacquisitionlead %>%   group_by(Channel) %>%
+                  summarise(Acquiredcount =n())
+#final dataframe use for calculate ROI, Conversion rate
+#final dataframe use for calculate ROI, Conversion rate
+finaldf <- numlead %>% merge(numphone, by.x='Channel', all = TRUE) %>%
+                        merge(nummeeting, by.x='Channel', all = TRUE) %>%
+                        merge(numacquire, by.x='Channel', all = TRUE)
+NoAgenlead <- agent_leads$REAgentID %>% unique() %>% length()
+NoAgentAcq <- agent_acq_dates$ZUID %>% unique() %>% length()
+# write.csv(finaldf, file = "FinalData.csv")
+```
+
+
+### this part is for modeling
+
+```{r}
+basedf <- agent_leads %>% inner_join(phone, by = 'REAgentID') %>%
+                        left_join(sales_meet, by =c('REAgentID')) %>%
+                        left_join(agentid_acq_dates, by = 'REAgentID')
+basedf<- basedf %>% select(REAgentID,LeadPlatform, LeadType, Channel, PhoneCallType,TalkTimeMinutes, SalesMeetingDate, ZUID, AcquisitionDate) %>% distinct() %>%
+            mutate(Channel = ifelse(Channel =='-', '', Channel),
+                   Meeting = as.factor(ifelse(is.na(SalesMeetingDate),0,1)),
+                   ZUID = as.factor(ifelse(is.na(ZUID),0,1) ),
+                   Acquired = as.factor(ifelse(is.na(AcquisitionDate),0,1)),
+                   PhoneCallType =as.factor(ifelse(PhoneCallType=="Sales Rep Called RE Agent","Out","In")))%>%
+            select(LeadPlatform, LeadType,Channel,PhoneCallType ,TalkTimeMinutes,Meeting,Acquired)
+          
+
+#logit model
+mylogit <- glm(Acquired ~., data = basedf, family = "binomial")
+summary(mylogit)
+```
+
+
+
+Assumptions:
++ Valid phone records are more than 0.5 min and empty records are removed 
++ The revenue is only counted within the period of 2016-10-03 and 2017-06-30
+
+AgentLeads Table 
+LeadType
++ origanic and social organic are the same group 
++ left blank and unknown value as they are
+
+LeadVendor
++ Regrouped leadvendor into five categories based on our assumption on each category
+
+
+Last touch
++ we associate the total acquisitions by last touch attribution 
+
+Join tables by only REAgentID
++ To keep number of Agent ID consistent and not being excluded by join table
++ this will cause many duplicate, but we can remve these duplicate later after join
 
 
 
