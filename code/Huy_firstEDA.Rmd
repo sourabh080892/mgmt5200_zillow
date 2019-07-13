@@ -39,6 +39,8 @@ library(gridExtra)
 library("readxl")
 library(janitor)
 library(stringr)
+library(aod)
+library(ggplot2)
 ```
 
 Load data and begin new EDA  
@@ -235,11 +237,52 @@ numacquire <- dfacquisitionlead %>%   group_by(Channel) %>%
 
 
 #final dataframe use for calculate ROI, Conversion rate
-finaldf <- numlead %>% merge(numphone, by.x='Channel', all.x = TRUE) %>%
-                        merge(nummeeting, by.x='Channel', all.x = TRUE) %>%
-                        merge(numacquire, by.x='Channel', all.x = TRUE)
+finaldf <- numlead %>% merge(numphone, by.x='Channel', all = TRUE) %>%
+                        merge(nummeeting, by.x='Channel', all = TRUE) %>%
+                        merge(numacquire, by.x='Channel', all = TRUE)
 NoAgenlead <- AgentLeads$REAgentID %>% unique() %>% length()
 NoAgentAcq <- AgentAcquisitionDates$ZUID %>% unique() %>% length()
 
+write.csv(finaldf, file = "FinalData.csv")
+
 ```
+
+
+### this part is for modeling
+
+```{r}
+basedf <- AgentLeads %>% inner_join(phonecall, by = 'REAgentID') %>%
+                        left_join(SalesMeetings, by =c('REAgentID')) %>%
+                        left_join(df, by = 'REAgentID')
+
+basedf<- basedf %>% select(REAgentID,LeadPlatform, LeadType, Channel, PhoneCallType,TalkTimeMinutes, SalesMeetingDate, ZUID, AcquisitionDate) %>% distinct() %>%
+            mutate(Channel = ifelse(Channel =='-', '', Channel),
+                   Meeting = as.factor(ifelse(is.na(SalesMeetingDate),0,1)),
+                   ZUID = as.factor(ifelse(is.na(ZUID),0,1) ),
+                   Acquired = as.factor(ifelse(is.na(AcquisitionDate),0,1)),
+                   PhoneCallType =as.factor(ifelse(PhoneCallType=="Sales Rep Called RE Agent","Out","In")))%>%
+            select(LeadPlatform, LeadType,Channel,PhoneCallType ,TalkTimeMinutes,Meeting,Acquired)
+          
+
+#logit model
+
+mylogit <- glm(Acquired ~., data = basedf, family = "binomial")
+
+summary(mylogit)
+
+#decisiontree
+# Load CART packages
+library(rpart)
+# install rpart package
+install.packages("rpart.plot")
+library(rpart.plot)
+tree = rpart(Acquired ~ LeadPlatform + LeadType +Channel +PhoneCallType +TalkTimeMinutes +Meeting, 
+             data=basedf,
+             method="class",
+             control=rpart.control(minsplit=30, cp=0.001) )
+
+prp(tree)
+```
+
+
 
