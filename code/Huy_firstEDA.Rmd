@@ -248,6 +248,13 @@ finaldf <- numlead %>% merge(numphone, by.x='Channel', all = TRUE) %>%
 NoAgenlead <- AgentLeads$REAgentID %>% unique() %>% length()
 NoAgentAcq <- AgentAcquisitionDates$ZUID %>% unique() %>% length()
 
+finaldf[is.na(finaldf)] <- 0
+
+finaldf$Leadcount <- as.numeric(finaldf$Leadcount)
+finaldf$Phonecount <- as.numeric(finaldf$Phonecount)
+finaldf$Meetingcount <- as.numeric(finaldf$Meetingcount)
+finaldf$Acquiredcount <- as.numeric(finaldf$Acquiredcount)
+
 write.csv(finaldf, file = "FinalData.csv")
 
 ```
