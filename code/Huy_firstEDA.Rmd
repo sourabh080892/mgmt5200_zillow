@@ -95,7 +95,7 @@ ledvendoremail <- c( "email","gmail","outlook")
 ledvendorgoogle <- c("google", "gdn", "android")
 ledvendorbing <- c("bing", "msn")
 ledvendororganic <- c("bizdev","zillow","organic","trulia","source","internal")
-ledvendorsocial <- c("affiliate","facebook","linkedin","display","schools","yahoo","gemini","zrm","areavibes","tomferry","thalamus","irontraffic","twitter","banner","instagram","flagged","brandnetworks","inquiry","textlink","blog","postletsre","tor", "agent","marketing","trulia" ,"draft","listing")
+ledvendorsocial <- c("affiliate","facebook","linkedin","display","schools","yahoo","gemini","zrm","areavibes","tomferry","thalamus","irontraffic","twitter","banner","instagram","flagged","brandnetworks","inquiry","textlink","blog","postletsre","tor", "agent","marketing","draft","listing")
 
 # by detecting the patern of Leadvender, I assing each vendor to a category
 AgentLeads$LeadVendor <- ifelse(str_detect(tolower(AgentLeads$LeadVendor), ledvendoremail), "Email",
@@ -240,12 +240,24 @@ numacquire <- dfacquisitionlead %>%   group_by(Channel) %>%
 finaldf <- numlead %>% merge(numphone, by.x='Channel', all = TRUE) %>%
                         merge(nummeeting, by.x='Channel', all = TRUE) %>%
                         merge(numacquire, by.x='Channel', all = TRUE)
+
+##########
+# Group "-", "Unknow"
+
+                        
 NoAgenlead <- AgentLeads$REAgentID %>% unique() %>% length()
 NoAgentAcq <- AgentAcquisitionDates$ZUID %>% unique() %>% length()
 
 write.csv(finaldf, file = "FinalData.csv")
 
 ```
+
+
+# FIrst touch Attribution
+```{r}
+
+```
+
 
 
 ### this part is for modeling
@@ -255,8 +267,10 @@ basedf <- AgentLeads %>% inner_join(phonecall, by = 'REAgentID') %>%
                         left_join(SalesMeetings, by =c('REAgentID')) %>%
                         left_join(df, by = 'REAgentID')
 
+basedf$Channel %>% unique()
 basedf<- basedf %>% select(REAgentID,LeadPlatform, LeadType, Channel, PhoneCallType,TalkTimeMinutes, SalesMeetingDate, ZUID, AcquisitionDate) %>% distinct() %>%
-            mutate(Channel = ifelse(Channel =='-', '', Channel),
+            mutate(Channel = ifelse(Channel =='-', '', 
+                                    ifelse(str_detect(tolower(Channel),'unknown'),'unknown', Channel)),
                    Meeting = as.factor(ifelse(is.na(SalesMeetingDate),0,1)),
                    ZUID = as.factor(ifelse(is.na(ZUID),0,1) ),
                    Acquired = as.factor(ifelse(is.na(AcquisitionDate),0,1)),
@@ -270,18 +284,10 @@ mylogit <- glm(Acquired ~., data = basedf, family = "binomial")
 
 summary(mylogit)
 
-#decisiontree
-# Load CART packages
-library(rpart)
-# install rpart package
-install.packages("rpart.plot")
-library(rpart.plot)
-tree = rpart(Acquired ~ LeadPlatform + LeadType +Channel +PhoneCallType +TalkTimeMinutes +Meeting, 
-             data=basedf,
-             method="class",
-             control=rpart.control(minsplit=30, cp=0.001) )
+logitresult <- as.data.frame(summary(mylogit)$coefficients)[,c("Estimate","Std. Error", "Pr(>|z|)")]
 
-prp(tree)
+logitresult$oddratio <- exp(coef(mylogit))[1:14]
+logitresult
 ```
 
 
