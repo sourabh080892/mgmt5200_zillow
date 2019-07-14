@@ -222,12 +222,12 @@ LeadLastTouch <- agent_leads[is.na(agent_leads$LeadVendor) == FALSE,] %>%
                   group_by(REAgentID) %>% 
                   mutate(ranking = row_number()) %>%
                   filter(ranking ==1)
-# # create first touch lead df 
-# LeadFirstTouch <- agent_leads  %>%    filter(!is.na(LeadDateTime)) %>%
-#                   arrange(REAgentID, LeadDateTime) %>%      
-#                   group_by(REAgentID) %>% 
-#                   mutate(ranking = row_number()) %>%
-#                   filter(ranking ==1)
+# create first touch lead df
+LeadFirstTouch <- agent_leads  %>%    filter(!is.na(LeadDateTime)) %>%
+                  arrange(REAgentID, LeadDateTime) %>%
+                  group_by(REAgentID) %>%
+                  mutate(ranking = row_number()) %>%
+                  filter(ranking ==1)
 # Number of obs each each df are the same    
 
 ```
@@ -271,7 +271,7 @@ agent_leads %>% select(REAgentID, SalesRepID, Channel, LeadDateTime) %>%
 
 
 ```{r}
-# Join Phone to LEad data and agreegate
+# Join Phone to Lead data and agreegate
 dfphonelead <- LeadLastTouch %>% left_join(phone, by =c('REAgentID')) %>%
                                 filter(!is.na(LeadDateTime), !is.na(PhoneCallDateTime))%>%
                                 select(REAgentID, LeadPlatform, Channel, PhoneCallDateTime) %>% distinct() 
@@ -333,7 +333,7 @@ finaldf <- numlead %>% merge(numphone, by.x='Channel', all = TRUE) %>%
 NoAgenlead <- agent_leads$REAgentID %>% unique() %>% length()
 NoAgentAcq <- agent_acq_dates$ZUID %>% unique() %>% length()
 finaldf
-# write.csv(finaldf, file = "FinalData.csv")
+write.csv(finaldf, file = "FinalData.csv")
 ```
 
 
@@ -384,6 +384,70 @@ Join tables by only REAgentID
 
 
 
+
+
+```{r}
+# Join Phone to Lead data and agreegate
+dfphonelead_first <- LeadFirstTouch %>% left_join(phone, by =c('REAgentID')) %>%
+                                filter(!is.na(LeadDateTime), !is.na(PhoneCallDateTime))%>%
+                                select(REAgentID, LeadPlatform, Channel, PhoneCallDateTime) %>% distinct() 
+    
+dfphonelead_first %>%   group_by(Channel) %>%
+                  summarise(Phonecount =n())
+
+
+
+```
+
+
+## Join meeting to phone lead
+```{r}
+# Salemeeting will be te base, each meeting must be assign to only one lead
+dfmeeting_first <- LeadFirstTouch %>% right_join(sales_meet, by=c('REAgentID'))  %>%
+                                filter(!is.na(SalesMeetingDate), !is.na(LeadDateTime))%>%
+                                select(REAgentID, LeadPlatform, Channel, SalesMeetingDate) %>% distinct() 
+dfmeeting_first %>%   group_by(LeadPlatform,Channel) %>%
+                  summarise(Meetingcount =n())
+# the different in nuber of meeeting between original data and this dataframe is number of meeting which are not belong to any lead channel
+# This mean their lead data is null.
+```
+
+
+
+## Join accquicistion to Lead
+
+```{r}
+# This step I used right join because each acquisition must be link to at least a lead => Acquisition table is the base
+dfacquisitionlead_first <- LeadFirstTouch %>% right_join(agentid_acq_dates, by ='REAgentID') %>%
+                                      select(REAgentID, LeadPlatform, Channel, AcquisitionDate) %>% distinct()
+dfacquisitionlead_first %>%   group_by(Channel) %>%
+                  summarise(Acquiredcount =n())
+```
+
+
+
+## put all of aggregate data together
+```{r}
+numlead_first <- agent_leads %>% select(REAgentID, SalesRepID, Channel, LeadDateTime) %>% 
+                filter(REAgentID != '', SalesRepID !='', !is.na(LeadDateTime)) %>% distinct() %>%
+                 group_by(Channel) %>%
+                  summarise(Leadcount =n())
+numphone_first <- dfphonelead_first %>%   group_by(Channel) %>%
+                  summarise(Phonecount =n())
+nummeeting_first <- dfmeeting_first %>%   group_by(Channel) %>%
+                  summarise(Meetingcount =n())
+numacquire_first <- dfacquisitionlead_first %>%   group_by(Channel) %>%
+                  summarise(Acquiredcount =n())
+#final dataframe use for calculate ROI, Conversion rate
+#final dataframe use for calculate ROI, Conversion rate
+finaldf_first <- numlead_first %>% merge(numphone_first, by.x='Channel', all = TRUE) %>%
+                        merge(nummeeting_first, by.x='Channel', all = TRUE) %>%
+                        merge(numacquire_first, by.x='Channel', all = TRUE)
+NoAgenlead <- agent_leads$REAgentID %>% unique() %>% length()
+NoAgentAcq <- agent_acq_dates$ZUID %>% unique() %>% length()
+finaldf_first
+write.csv(finaldf_first, file = "FinalData_first.csv")
+```
 
 
 
