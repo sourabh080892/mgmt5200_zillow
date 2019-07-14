@@ -194,7 +194,7 @@ dfmeeting <- LeadLastTouch %>% right_join(SalesMeetings, by=c('REAgentID'))  %>%
                                 select(REAgentID, LeadPlatform, Channel, SalesMeetingDate) %>% distinct() 
 
 
-dfmeeting %>%   group_by(LeadPlatform,Channel) %>%
+dfmeeting %>%   group_by(Channel) %>%
                   summarise(Meetingcount =n())
 # the different in nuber of meeeting between original data and this dataframe is number of meeting which are not belong to any lead channel
 # This mean their lead data is null.
@@ -260,11 +260,37 @@ write.csv(finaldf, file = "FinalData.csv")
 ```
 
 
-# FIrst touch Attribution
+# First touch Attribution - for comparison
 ```{r}
-
+# Join Phone to Lead data and agreegate
+dfphonelead_ft <- LeadFirstTouch %>% left_join(phonecall, by =c('REAgentID')) %>%
+                                filter(!is.na(LeadDateTime), !is.na(PhoneCallDateTime))%>%
+                                select(REAgentID, LeadPlatform, Channel, PhoneCallDateTime) %>% distinct() 
+    
+dfphonelead_ft %>%   group_by(Channel) %>%
+                  summarise(Phonecount =n())
 ```
 
+```{r}
+# Join meeting to Lead data and agreegate
+dfmeeting_ft <- LeadFirstTouch %>% right_join(SalesMeetings, by=c('REAgentID'))  %>%
+                                filter(!is.na(SalesMeetingDate), !is.na(LeadDateTime))%>%
+                                select(REAgentID, LeadPlatform, Channel, SalesMeetingDate) %>% distinct() 
+
+
+dfmeeting_ft %>%   group_by(Channel) %>%
+                  summarise(Meetingcount =n())
+```
+
+```{r}
+# Join acquisition to lead
+dfacquisitionlead_ft <- LeadFirstTouch %>% right_join(df, by ='REAgentID') %>%
+                                      select(REAgentID, LeadPlatform, Channel, AcquisitionDate) %>% distinct()
+
+
+dfacquisitionlead_ft %>%   group_by(Channel) %>%
+                  summarise(Acquiredcount =n())
+```
 
 
 ### this part is for modeling
