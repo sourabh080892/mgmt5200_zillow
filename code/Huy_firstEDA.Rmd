@@ -268,7 +268,7 @@ finaldf <- numlead %>% merge(numphone, by.x='Channel', all = TRUE) %>%
 ##########
 # Group "-", "Unknow"
 
-                        
+
 NoAgenlead <- AgentLeads$REAgentID %>% unique() %>% length()
 NoAgentAcq <- AgentAcquisitionDates$ZUID %>% unique() %>% length()
 
@@ -315,6 +315,37 @@ dfacquisitionlead_ft <- LeadFirstTouch %>% right_join(df, by ='REAgentID') %>%
 
 dfacquisitionlead_ft %>%   group_by(Channel) %>%
                   summarise(Acquiredcount =n())
+```
+
+
+
+```{r}
+numphone_ft <- dfphonelead_ft %>%   group_by(Channel) %>%
+                  summarise(Phonecount =n())
+
+nummeeting_ft <- dfmeeting_ft %>%   group_by(Channel) %>%
+                  summarise(Meetingcount =n())
+numacquire_ft <- dfacquisitionlead_ft %>%   group_by(Channel) %>%
+                  summarise(Acquiredcount =n())
+
+
+#final dataframe use for calculate ROI, Conversion rate
+finaldf_ft <- numlead %>% merge(numphone_ft, by.x='Channel', all = TRUE) %>%
+                        merge(nummeeting_ft, by.x='Channel', all= TRUE) %>%
+                        merge(numacquire_ft, by.x='Channel', all = TRUE) 
+  
+                      
+
+
+finaldf_ft[is.na(finaldf_ft)] <- 0
+
+finaldf_ft$Leadcount <- as.numeric(finaldf_ft$Leadcount)
+finaldf_ft$Phonecount <- as.numeric(finaldf_ft$Phonecount)
+finaldf_ft$Meetingcount <- as.numeric(finaldf_ft$Meetingcount)
+finaldf_ft$Acquiredcount <- as.numeric(finaldf_ft$Acquiredcount)
+
+
+write.csv(finaldf_ft, file = "FinalData_ft.csv")
 ```
 
 
