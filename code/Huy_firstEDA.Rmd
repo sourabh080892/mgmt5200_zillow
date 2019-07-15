@@ -370,7 +370,6 @@ write.csv(finaldf_ft, file = "FinalData_ft.csv")
 
 
 ### this part is for modeling
-
 ```{r}
 basedf <- AgentLeads %>% inner_join(phonecall, by = 'REAgentID') %>%
                         left_join(SalesMeetings, by =c('REAgentID')) %>%
@@ -392,8 +391,10 @@ mylogit <- glm(Acquired ~LeadPlatform+Channel+TalkTimeMinutes+Meeting, data = ba
 
 summary(mylogit)
 
+# create table of logit model results
 logitresult <- as.data.frame(summary(mylogit)$coefficients)[,c("Estimate","Std. Error", "Pr(>|z|)")]
 
+# include the odd ratio to the table
 logitresult$oddratio <- exp(coef(mylogit))[1:length(exp(coef(mylogit)))]
 logitresult
 
