@@ -353,7 +353,8 @@ numacquire_ft <- dfacquisitionlead_ft %>%   group_by(Channel) %>%
 finaldf_ft <- numlead %>% merge(numphone_ft, by.x='Channel', all = TRUE) %>%
                         merge(nummeeting_ft, by.x='Channel', all= TRUE) %>%
                         merge(numacquire_ft, by.x='Channel', all = TRUE) 
-  
+
+finaldf_ft[is.na(finaldf_ft)] <- 0  
 # calculate ROI, Cost, Covertionrate
 firsttouchdf <- finaldf_ft %>% mutate(Cost = ifelse(Channel %in% c('Organic', "Unknown"),0*Leadcount +10*Phonecount +300 *Meetingcount,
                                                 ifelse(Channel =="Email", 10*Leadcount +10*Phonecount +300 *Meetingcount,
@@ -368,7 +369,7 @@ firsttouchdf <- finaldf_ft %>% mutate(Cost = ifelse(Channel %in% c('Organic', "U
                                  ConversionRate = as.double(Acquiredcount/Leadcount*100))                      
 
 
-firsttouchdf[is.na(firsttouchdf)] <- 0
+
 
 firsttouchdf$Leadcount <- as.numeric(firsttouchdf$Leadcount)
 firsttouchdf$Phonecount <- as.numeric(firsttouchdf$Phonecount)
