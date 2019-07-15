@@ -354,18 +354,29 @@ finaldf_ft <- numlead %>% merge(numphone_ft, by.x='Channel', all = TRUE) %>%
                         merge(nummeeting_ft, by.x='Channel', all= TRUE) %>%
                         merge(numacquire_ft, by.x='Channel', all = TRUE) 
   
-                      
+# calculate ROI, Cost, Covertionrate
+firsttouchdf <- finaldf_ft %>% mutate(Cost = ifelse(Channel %in% c('Organic', "Unknown"),0*Leadcount +10*Phonecount +300 *Meetingcount,
+                                                ifelse(Channel =="Email", 10*Leadcount +10*Phonecount +300 *Meetingcount,
+                                                       ifelse(Channel =="Paid Bing", 80*Leadcount +10*Phonecount +300 *Meetingcount,
+                                                              150*Leadcount +10*Phonecount +300*Meetingcount
+                                                                     ))),
+                                 NPV =ifelse(Channel %in% c('Paid Social', "Paid Bing",'Paid Google'), 7000,
+                                             ifelse(Channel == 'Email', 8000,
+                                                    ifelse(Channel =='Organic', 7500, 0))),
+                                 TolNPV = Acquiredcount*NPV,
+                                 ROI = as.double((TolNPV -Cost)/Cost),
+                                 ConversionRate = as.double(Acquiredcount/Leadcount*100))                      
 
 
-finaldf_ft[is.na(finaldf_ft)] <- 0
+firsttouchdf[is.na(firsttouchdf)] <- 0
 
-finaldf_ft$Leadcount <- as.numeric(finaldf_ft$Leadcount)
-finaldf_ft$Phonecount <- as.numeric(finaldf_ft$Phonecount)
-finaldf_ft$Meetingcount <- as.numeric(finaldf_ft$Meetingcount)
-finaldf_ft$Acquiredcount <- as.numeric(finaldf_ft$Acquiredcount)
+firsttouchdf$Leadcount <- as.numeric(firsttouchdf$Leadcount)
+firsttouchdf$Phonecount <- as.numeric(firsttouchdf$Phonecount)
+firsttouchdf$Meetingcount <- as.numeric(firsttouchdf$Meetingcount)
+firsttouchdf$Acquiredcount <- as.numeric(firsttouchdf$Acquiredcount)
 
 
-write.csv(finaldf_ft, file = "FinalData_ft.csv")
+write.csv(firsttouchdf, file = "firsttouchdf.csv")
 ```
 
 
