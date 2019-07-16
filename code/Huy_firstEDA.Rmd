@@ -1,8 +1,12 @@
 ---
-title: "R Notebook"
+title: "Zillow Group"
+author: "Huy Le, Haodi Tu, Sourabh Gupta, Huibo Jia"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:
   html_document:
     df_print: paged
+    toc: true
+    toc_float: true
 ---
 
 
@@ -10,11 +14,11 @@ Commented header
 =========================================
 
 ```{r echo = TRUE}
-# Course: 
-# Title: 
-# Purpose: 
-# Date: 
-# Author: Huy LE
+# Course: MGMT 5200
+# Title: Boardroom Analytics
+# Purpose: Zillow Group Project
+# Date: 2019-07-14
+# Author: Huy LE, Haodi Tu, Sourabh Gupta, Huibo Jia
 ```
 
 
@@ -22,7 +26,6 @@ Clear environment of variables and packages
 =========================================
 
 ```{r}
-
 # Clear environment of variables and functions
 rm(list = ls(all = TRUE)) 
 
@@ -60,6 +63,20 @@ SalesMeetings <- read_csv('../data/SalesMeetings.csv')
 
 ```
 
+Data Preprocessing
+=========================================
+```{r}
+#check na value
+sapply(AgentAcquisitionDates, function(x) sum(is.na(x)))
+sapply(AgentIDZUIDLookup, function(x) sum(is.na(x)))
+sapply(AgentLeads, function(x) sum(is.na(x)))
+sapply(PhoneCalls20161001_20170228, function(x) sum(is.na(x)))
+sapply(PhoneCalls20170301_20170630, function(x) sum(is.na(x)))
+sapply(SalesMeetings, function(x) sum(is.na(x)))
+
+```
+
+# Filter invalid value and grouping Marketing Channel
 ```{r}
 # filter all acquisition before OCt 2016
 
@@ -155,29 +172,16 @@ LeadFirstTouch <- AgentLeads  %>%    filter(!is.na(LeadDateTime)) %>%
 
 ```
 
+Aggregating sale and marketing data
+=========================================
+# A. Last touch
+
+## 1. Number of lead per channel
 
 ```{r}
-#check na value
-sapply(AgentAcquisitionDates, function(x) sum(is.na(x)))
-sapply(AgentIDZUIDLookup, function(x) sum(is.na(x)))
-sapply(AgentLeads, function(x) sum(is.na(x)))
-sapply(PhoneCalls20161001_20170228, function(x) sum(is.na(x)))
-sapply(PhoneCalls20170301_20170630, function(x) sum(is.na(x)))
-sapply(SalesMeetings, function(x) sum(is.na(x)))
+### the process is: Lead -> Phone Call -> Meeting or not -> acquicisiton date
 
-#check duplicate row
-#duplicated(AgentLeads)
-agentlead <- AgentLeads%>%distinct() 
-phonecall <- phonecall%>% distinct() 
-
-```
-
-
-### the process is: Lead -> Phone Call -> Meeting or not -> acquicisiton datte
-
-
-## This Chunk will work only in aggregate total lead in each channel
-```{r}
+# 1. Number lead per channle
 # calc number touch per lead , last touch attribution
 LeadLastTouch %>%   filter(REAgentID != '', SalesRepID !='', !is.na(LeadDateTime)) %>% distinct() %>%
         group_by(Channel) %>%
@@ -188,13 +192,14 @@ LeadFirstTouch %>%   filter(REAgentID != '', SalesRepID !='', !is.na(LeadDateTim
         group_by(Channel) %>%
         summarise(count =n())
 
-# the code below use to validate the result about
+# the code below use to validate the result above
 AgentLeads %>% select(REAgentID, SalesRepID, Channel, LeadDateTime) %>% 
                 filter(REAgentID != '', SalesRepID !='', !is.na(LeadDateTime)) %>% distinct() %>%
                  group_by(Channel) %>%
                   summarise(Leadcount =n())
 ``` 
 
+## 2. Number of Phone call
 
 ```{r}
 # Join Phone to LEad data and agreegate
@@ -211,7 +216,7 @@ dfphonelead %>%   group_by(Channel) %>%
 ```
 
 
-## Join meeting to phone lead
+## 3. Number of meeting 
 ```{r}
 
 # Salemeeting will be te base, each meeting must be assign to only one lead
@@ -227,7 +232,7 @@ dfmeeting %>%   group_by(Channel) %>%
 
 ```
 
-## Join accquicistion to Lead
+## 4. Number of acquired agent
 
 ```{r}
 # join ZUID acquisition <-> Agent ID
@@ -246,10 +251,7 @@ dfacquisitionlead %>%   group_by(Channel) %>%
                   summarise(Acquiredcount =n())
 ```
 
-
-
-## put all of aggregate data together
-### Last Touch Attribution
+## 5. Last Touch Attribution Final Result
 
 ```{r}
 numlead <- AgentLeads %>% select(REAgentID, SalesRepID, Channel, LeadDateTime) %>% 
@@ -282,30 +284,25 @@ lastouchdf <- finaldf %>% mutate(Cost = ifelse(Channel %in% c('Organic', "Unknow
                                  TolNPV = Acquiredcount*NPV,
                                  ROI = as.double((TolNPV -Cost)/Cost),
                                  ConversionRate = as.double(Acquiredcount/Leadcount*100))
-          
-
-
-##########
+##
 # Group "-", "Unknow"
-
-
 NoAgenlead <- AgentLeads$REAgentID %>% unique() %>% length()
 NoAgentAcq <- AgentAcquisitionDates$ZUID %>% unique() %>% length()
 
 lastouchdf[is.na(lastouchdf)] <- 0
-
 lastouchdf$Leadcount <- as.numeric(lastouchdf$Leadcount)
 lastouchdf$Phonecount <- as.numeric(lastouchdf$Phonecount)
 lastouchdf$Meetingcount <- as.numeric(lastouchdf$Meetingcount)
 lastouchdf$Acquiredcount <- as.numeric(lastouchdf$Acquiredcount)
 
-
 write.csv(lastouchdf, file = "lastouchdf.csv")
-
 ```
 
 
-# First touch Attribution - for comparison
+# B. First touch Attribution - for comparison
+
+## 1. Number of Phone call per channel
+
 ```{r}
 # Join Phone to Lead data and agreegate
 dfphonelead_ft <- LeadFirstTouch %>% left_join(phonecall, by =c('REAgentID')) %>%
@@ -315,6 +312,8 @@ dfphonelead_ft <- LeadFirstTouch %>% left_join(phonecall, by =c('REAgentID')) %>
 dfphonelead_ft %>%   group_by(Channel) %>%
                   summarise(Phonecount =n())
 ```
+
+## 2. Number of meeting per channel
 
 ```{r}
 # Join meeting to Lead data and agreegate
@@ -327,6 +326,8 @@ dfmeeting_ft %>%   group_by(Channel) %>%
                   summarise(Meetingcount =n())
 ```
 
+## 3. Number of Acquired Agent per channel
+
 ```{r}
 # Join acquisition to lead
 dfacquisitionlead_ft <- LeadFirstTouch %>% right_join(df, by ='REAgentID') %>%
@@ -337,7 +338,7 @@ dfacquisitionlead_ft %>%   group_by(Channel) %>%
                   summarise(Acquiredcount =n())
 ```
 
-
+## 5. First Touch Attribution Fina Result
 
 ```{r}
 numphone_ft <- dfphonelead_ft %>%   group_by(Channel) %>%
@@ -376,12 +377,13 @@ firsttouchdf$Phonecount <- as.numeric(firsttouchdf$Phonecount)
 firsttouchdf$Meetingcount <- as.numeric(firsttouchdf$Meetingcount)
 firsttouchdf$Acquiredcount <- as.numeric(firsttouchdf$Acquiredcount)
 
-
+# write out result to CSV file for Data visualization
 write.csv(firsttouchdf, file = "firsttouchdf.csv")
 ```
 
+Logistic regression model
+=========================================
 
-### this part is for modeling
 ```{r}
 basedf <- AgentLeads %>% inner_join(phonecall, by = 'REAgentID') %>%
                         left_join(SalesMeetings, by =c('REAgentID')) %>%
@@ -408,9 +410,19 @@ logitresult <- as.data.frame(summary(mylogit)$coefficients)[,c("Estimate","Std. 
 
 # include the odd ratio to the table
 logitresult$oddratio <- exp(coef(mylogit))[1:length(exp(coef(mylogit)))]
+
 logitresult
 
 ```
 
+The result suggest that:
+
+- Paid Google Channel has a higher odd ratio of acquired agent probability. Follow by Social, Bing, Organic then Email.
+
+- A meeting will increate the odd ratio of acquired probability by 37%.
+
+- When platform is Phone, the odd ratio of acquired probability is higher 7%
+
+=> To sum up, Zillow will have higher chance to acquired an agent via Google Channel.
 
 
